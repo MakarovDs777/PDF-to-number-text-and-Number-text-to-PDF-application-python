@@ -12,7 +12,7 @@ import io
 
 # ——— Маркеры для разделения текста и изображений ———
 MARKER_IMAGE_START = 999999999
-MARKER_IMAGE_END   = 999999998
+MARKER_IMAGE_END = 999999998
 
 # ——— Настройка окна ———
 root = tk.Tk()
@@ -94,8 +94,7 @@ def pdf_to_numbers():
                 ext_map = {'png': 1, 'jpeg': 2, 'jpg': 2, 'gif': 3, 'tiff': 4, 'webp': 5}
                 ext_code = ext_map.get(image_ext, 0)
 
-                # Сохраняем размеры оригинального изображения (прямо из xref)
-                # fitz не даёт размеров напрямую, получим через PIL
+                # Сохраняем размеры оригинального изображения (через PIL)
                 pil_img = Image.open(io.BytesIO(image_bytes))
                 width, height = pil_img.size
 
@@ -113,6 +112,9 @@ def pdf_to_numbers():
                 # Маркер конца изображения
                 numbers.append(MARKER_IMAGE_END)
 
+        # ✅ СЧИТАЕМ КОЛИЧЕСТВО ИЗОБРАЖЕНИЙ ДО ЗАКРЫТИЯ ДОКУМЕНТА
+        total_images = sum(len(page.get_images()) for page in doc)
+
         doc.close()
 
         # Сохраняем на рабочий стол
@@ -123,7 +125,9 @@ def pdf_to_numbers():
             f.write(" ".join(str(n) for n in numbers))
 
         status.config(text=f"✅ Готово! Файл сохранён:\n{save_path}")
-        messagebox.showinfo("Успех", f"PDF (текст + {sum(len(page.get_images()) for page in doc)} изображений) преобразован в числа.\nСохранено:\n{save_path}")
+        messagebox.showinfo("Успех",
+                            f"PDF (текст + {total_images} изображений) преобразован в числа.\n"
+                            f"Сохранено:\n{save_path}")
 
     except Exception as e:
         status.config(text="❌ Ошибка")
@@ -133,17 +137,20 @@ def pdf_to_numbers():
 
 # ——— Функция: числа → PDF ———
 def numbers_to_pdf():
-    file = askopenfile(parent=root, mode='r', encoding='utf-8',
-                       title="Выберите файл с числами (.txt)",
-                       filetypes=[("Text files", "*.txt")])
-    if not file:
+    from tkinter.filedialog import askopenfilename
+
+    filepath = askopenfilename(parent=root, title="Выберите файл с числами (.txt)",
+                               filetypes=[("Text files", "*.txt")])
+    if not filepath:
         return
 
     status.config(text="Читаю числа и восстанавливаю PDF...")
     root.update()
 
     try:
-        content = file.read()
+        with open(filepath, "r", encoding="utf-8") as f:
+            content = f.read()
+
         numbers = [int(x) for x in content.strip().split()]
 
         # Парсим числа
@@ -225,13 +232,13 @@ def numbers_to_pdf():
         c.save()
 
         status.config(text=f"✅ Готово! PDF сохранён:\n{output_pdf_path}")
-        messagebox.showinfo("Успех", f"Числа преобразованы обратно в PDF (с изображениями).\nСохранено:\n{output_pdf_path}")
+        messagebox.showinfo("Успех",
+                            f"Числа преобразованы обратно в PDF (с изображениями).\n"
+                            f"Сохранено:\n{output_pdf_path}")
 
     except Exception as e:
         status.config(text="❌ Ошибка")
         messagebox.showerror("Ошибка", str(e))
-    finally:
-        file.close()
 
 # ——— Кнопки ———
 btn_pdf_to_num = tk.Button(root, text="📄 PDF → Числа", command=pdf_to_numbers,
